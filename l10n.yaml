@@ -1,0 +1,14 @@
+# Flutter localization (gen_l10n) configuration
+# See: https://docs.flutter.dev/accessibility-and-localization/internationalization
+# Note: `synthetic-package` is removed in recent Flutter versions.
+
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+nullable-getter: false
+untranslated-messages-file: build/l10n_untranslated.json
+use-deferred-loading: false
+preferred-supported-locales:
+  - en
+  - ar

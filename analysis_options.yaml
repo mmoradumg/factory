@@ -1,0 +1,18 @@
+include: package:flutter_lints/flutter.yaml
+
+# This workspace also stores exported and archived Flutter projects.  They are
+# independent packages, so analyzing them from this package produces false
+# missing-dependency errors.
+analyzer:
+  exclude:
+    - Factory full system/**
+    - UMG_Factory_OS_Master_Package/**
+    - UMG_Factory_OS_Package/**
+    - factory_audit_flutter_project/**
+    - factory_audit_flutter_project 3/**
+    - factory_audit_flutter_project_refreshed_1773678998/**
+    - factory_audit_system_corrected_1773720108/**
+
+linter:
+  rules:
+    avoid_print: true
