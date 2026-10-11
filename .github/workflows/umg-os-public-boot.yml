@@ -1,0 +1,67 @@
+name: UMG OS public UEFI boot smoke
+on:
+  push:
+    branches: [umg-os-uefi-cloud-boot-test]
+    paths:
+      - 'umg-os-boot/**'
+      - '.github/workflows/umg-os-public-boot.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  uefi-boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: umg-os-boot
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install QEMU and OVMF
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-system-x86 ovmf clang lld binutils
+      - name: Compile kernel and UEFI loader
+        shell: bash
+        run: |
+          set -euo pipefail
+          make clean all check 2>&1 | tee build-check.log
+      - name: Boot QEMU with UEFI
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/esp/EFI/BOOT build/esp/kernel
+          cp build/BOOTX64.EFI build/esp/EFI/BOOT/BOOTX64.EFI
+          cp build/kernel.elf build/esp/kernel/KERNEL.ELF
+          code=/usr/share/OVMF/OVMF_CODE_4M.fd
+          vars=/usr/share/OVMF/OVMF_VARS_4M.fd
+          test -f "$code" || code=/usr/share/OVMF/OVMF_CODE.fd
+          test -f "$vars" || vars=/usr/share/OVMF/OVMF_VARS.fd
+          test -f "$code" && test -f "$vars"
+          cp "$vars" build/OVMF_VARS_CI.fd
+          set +e
+          timeout --signal=TERM --kill-after=5s 75s qemu-system-x86_64 \
+            -machine q35,accel=tcg -cpu qemu64 -m 512M -smp 1 \
+            -drive if=pflash,format=raw,readonly=on,file="$code" \
+            -drive if=pflash,format=raw,file=build/OVMF_VARS_CI.fd \
+            -drive format=raw,file=fat:rw:build/esp \
+            -display none -monitor none -serial none \
+            -debugcon file:build/debugcon.log -global isa-debugcon.iobase=0xe9 \
+            -no-reboot -no-shutdown > build/qemu.stdout 2> build/qemu.stderr
+          rc=$?
+          set -e
+          echo "QEMU exit code: $rc"
+          cat build/debugcon.log || true
+          grep -q 'UMG_KERNEL_REACHED' build/debugcon.log || { echo 'FAIL: kernel marker absent'; exit 1; }
+          echo 'PASS: UMG_KERNEL_REACHED'
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: umg-os-public-uefi-logs
+          path: |
+            umg-os-boot/build-check.log
+            umg-os-boot/build/debugcon.log
+            umg-os-boot/build/qemu.stdout
+            umg-os-boot/build/qemu.stderr
+          if-no-files-found: ignore
