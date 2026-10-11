@@ -1,0 +1,19 @@
+name: UMG public runner probe
+on:
+  push:
+    paths:
+      - '.github/workflows/umg-runner-public-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Confirm hosted runner
+        run: |
+          set -e
+          echo 'UMG_PUBLIC_RUNNER_STARTED'
+          uname -a
+          echo 'UMG_PUBLIC_RUNNER_PASS'
