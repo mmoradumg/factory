@@ -42,9 +42,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Install Flutter stable
+      - name: Install Flutter 3.44.9 (matches committed lockfile)
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.9'
           channel: stable
           cache: true
       - name: Inspect toolchains
