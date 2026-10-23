@@ -13,6 +13,17 @@ fun signingPassword(environmentKeyProperty: String): String {
         ?: throw GradleException("Missing $environmentKey environment variable for release signing")
 }
 
+// CI debug builds must never require release signing material.
+// A release is intentionally rejected if the keystore or its secrets are missing.
+val releaseSigningKeys = listOf("keyAlias", "storeFile", "keyPasswordEnv", "storePasswordEnv")
+val releaseSigningConfigured =
+    keystorePropertiesFile.isFile &&
+        releaseSigningKeys.all { !keystoreProperties.getProperty(it).isNullOrBlank() } &&
+        listOf("keyPasswordEnv", "storePasswordEnv").all {
+            val environmentKey = keystoreProperties.getProperty(it)
+            !System.getenv(environmentKey).isNullOrBlank()
+        }
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
@@ -41,19 +52,22 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            keyAlias = keystoreProperties.getProperty("keyAlias")
-                ?: throw GradleException("Missing keyAlias in key.properties")
-            keyPassword = signingPassword("keyPasswordEnv")
-            storeFile = keystoreProperties.getProperty("storeFile")?.let(::file)
-                ?: throw GradleException("Missing storeFile in key.properties")
-            storePassword = signingPassword("storePasswordEnv")
+        if (releaseSigningConfigured) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = signingPassword("keyPasswordEnv")
+                storeFile = keystoreProperties.getProperty("storeFile")?.let(::file)
+                    ?: throw GradleException("Missing storeFile in key.properties")
+                storePassword = signingPassword("storePasswordEnv")
+            }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseSigningConfigured) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }
@@ -66,4 +80,24 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+/*
+ * Fail closed for release outputs. Android's release tasks can otherwise
+ * proceed without a signing config, while debug CI never needs release keys.
+ */
+tasks.configureEach {
+    val producesRelease =
+        (name.startsWith("assemble") || name.startsWith("bundle")) &&
+            name.endsWith("Release")
+    if (producesRelease) {
+        doFirst {
+            if (!releaseSigningConfigured) {
+                throw GradleException(
+                    "Release signing is not configured. Provide android/key.properties " +
+                        "and its referenced environment variables; unsigned releases are forbidden."
+                )
+            }
+        }
+    }
 }
