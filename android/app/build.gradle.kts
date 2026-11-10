@@ -88,7 +88,7 @@ flutter {
  */
 tasks.configureEach {
     val producesRelease =
-        (name.startsWith("assemble") || name.startsWith("bundle")) &&
+        (name.startsWith("assemble") || name.startsWith("bundle") || name.startsWith("package")) &&
             name.endsWith("Release")
     if (producesRelease) {
         doFirst {
