@@ -86,18 +86,18 @@ flutter {
  * Fail closed for release outputs. Android's release tasks can otherwise
  * proceed without a signing config, while debug CI never needs release keys.
  */
-tasks.configureEach {
+gradle.taskGraph.addTaskExecutionGraphListener { taskGraph ->
     val producesRelease =
-        (name.startsWith("assemble") || name.startsWith("bundle")) &&
-            name.endsWith("Release")
-    if (producesRelease) {
-        doFirst {
-            if (!releaseSigningConfigured) {
-                throw GradleException(
-                    "Release signing is not configured. Provide android/key.properties " +
-                        "and its referenced environment variables; unsigned releases are forbidden."
-                )
-            }
+        taskGraph.allTasks.any {
+            (it.name.startsWith("assemble") ||
+                it.name.startsWith("bundle") ||
+                it.name.startsWith("package")) &&
+                it.name.endsWith("Release")
         }
+    if (producesRelease && !releaseSigningConfigured) {
+        throw GradleException(
+            "Release signing is not configured. Provide android/key.properties " +
+                "and its referenced environment variables; unsigned releases are forbidden."
+        )
     }
 }
